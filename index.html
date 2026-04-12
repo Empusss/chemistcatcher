@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chemist Catcher - Game Edukasi Kimia</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        
+        body { 
+            font-family: 'Inter', sans-serif; 
+            overflow: hidden; 
+            background-color: #0f172a; 
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            width: 100vw;
+            touch-action: none;
+        }
+        
+        .beaker-liquid { 
+            transition: height 0.3s ease-in-out; 
+        }
+        
+        @keyframes floatUp {
+            0% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+            100% { opacity: 0; transform: translate(-50%, -60px) scale(1.3); }
+        }
+        .msg-popup { 
+            animation: floatUp 1.5s ease-out forwards; 
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-8px); }
+            50% { transform: translateX(8px); }
+            75% { transform: translateX(-8px); }
+        }
+        .animate-shake { 
+            animation: shake 0.2s ease-in-out; 
+        }
+
+        * {
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-white">
+
+    <div id="game-container" class="relative w-full h-full overflow-hidden">
+        
+        <!-- START SCREEN -->
+        <div id="start-screen" class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-slate-900 p-6">
+            <div class="mb-6">
+                <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4.5 3h15"/>
+                    <path d="M6 3v16a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V3"/>
+                    <path d="M6 14h12"/>
+                </svg>
+            </div>
+            <h1 class="text-5xl md:text-6xl font-black mb-4 text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500 text-center">
+                Chemist Catcher
+            </h1>
+            <p class="text-slate-400 mb-8 text-center max-w-md text-lg">
+                Jadilah laboran hebat! Tangkap unsur yang tepat untuk meracik senyawa kimia sebelum lab meledak.
+            </p>
+            <button onclick="startGame()" class="bg-cyan-600 hover:bg-cyan-500 text-white px-12 py-4 rounded-full font-bold text-2xl transition-all hover:scale-105 shadow-[0_0_25px_rgba(34,211,238,0.3)]">
+                Mulai Praktikum
+            </button>
+        </div>
+
+        <!-- GAME UI -->
+        <div id="game-ui" class="hidden absolute top-4 left-4 flex flex-wrap items-start gap-4 z-40 pointer-events-none">
+            <div class="flex flex-col gap-2">
+                <div class="bg-slate-800/90 backdrop-blur px-4 py-2 rounded-lg border border-slate-700 flex items-center gap-3 shadow-xl">
+                    <span class="text-xl">🏆</span>
+                    <span id="score-display" class="font-black text-xl text-cyan-400">0</span>
+                </div>
+                <div id="lives-container" class="flex gap-1 text-2xl drop-shadow-md">
+                    <span>❤️</span><span>❤️</span><span>❤️</span>
+                </div>
+            </div>
+
+            <div class="bg-slate-800/95 backdrop-blur border-2 border-cyan-500/50 p-4 rounded-xl shadow-2xl flex flex-col items-center min-w-[240px]">
+                <span class="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-1">Target Praktikum</span>
+                <div id="target-formula" class="text-white font-black text-3xl leading-tight">H₂O</div>
+                <div id="target-name" class="text-sm text-cyan-300 font-medium mb-4">Air</div>
+                <div id="ingredients-list" class="flex flex-wrap gap-2 justify-center"></div>
+            </div>
+        </div>
+
+        <!-- GAME OVER -->
+        <div id="gameover-screen" class="hidden absolute inset-0 z-50 flex flex-col items-center justify-center bg-slate-950/95 backdrop-blur-lg p-6">
+            <div class="text-8xl mb-6">💥</div>
+            <h1 class="text-5xl font-black text-red-500 mb-2 text-center">Eksperimen Gagal!</h1>
+            <div class="bg-slate-800 p-8 rounded-3xl border-2 border-slate-700 mb-8 flex flex-col items-center shadow-2xl">
+                <span class="text-slate-400 font-bold uppercase tracking-widest mb-1">Skor Akhir</span>
+                <span id="final-score" class="text-6xl font-black text-cyan-400">0</span>
+            </div>
+            <button onclick="startGame()" class="bg-slate-700 hover:bg-slate-600 px-12 py-4 rounded-full font-bold text-xl border border-slate-500 transition-all hover:scale-105">
+                Ulangi Praktikum
+            </button>
+        </div>
+
+        <div id="msg-container" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-50"></div>
+
+        <!-- Beaker -->
+        <div id="beaker" class="absolute bottom-10 left-1/2 -translate-x-1/2 transition-transform duration-75 z-30 pointer-events-none">
+            <div class="relative w-20 h-24 bg-white/10 border-x-4 border-b-4 border-white/70 rounded-b-3xl overflow-hidden backdrop-blur-md shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+                <div id="beaker-liquid" class="beaker-liquid absolute bottom-0 w-full bg-cyan-500/80 border-t-4 border-cyan-300 shadow-[0_-8px_20px_rgba(6,182,212,0.6)]" style="height: 0%"></div>
+                <div class="absolute left-0 top-1/4 w-3 border-b-2 border-white/40"></div>
+                <div class="absolute left-0 top-2/4 w-5 border-b-2 border-white/40"></div>
+                <div class="absolute left-0 top-3/4 w-3 border-b-2 border-white/40"></div>
+            </div>
+            <div class="absolute -bottom-4 left-1/2 -translate-x-1/2 w-24 h-6 bg-cyan-500/20 blur-xl rounded-full"></div>
+        </div>
+
+        <div id="elements-layer"></div>
+        <div class="absolute bottom-0 w-full h-10 bg-gradient-to-b from-slate-800 to-slate-900 border-t-2 border-slate-700 z-10"></div>
+    </div>
+
+    <script>
+        const COMPOUNDS = [
+            { name: "Air", formula: "H₂O", required: { H: 2, O: 1 } },
+            { name: "Garam Dapur", formula: "NaCl", required: { Na: 1, Cl: 1 } },
+            { name: "Karbon Dioksida", formula: "CO₂", required: { C: 1, O: 2 } },
+            { name: "Metana", formula: "CH₄", required: { C: 1, H: 4 } },
+            { name: "Amonia", formula: "NH₃", required: { N: 1, H: 3 } },
+            { name: "Soda Kue", formula: "NaHCO₃", required: { Na: 1, H: 1, C: 1, O: 3 } },
+            { name: "Asam Sulfat", formula: "H₂SO₄", required: { H: 2, S: 1, O: 4 } },
+            { name: "Asam Fosfat", formula: "H₃PO₄", required: { H: 3, P: 1, O: 4 } },
+            { name: "Kalsium Karbonat", formula: "CaCO₃", required: { Ca: 1, C: 1, O: 3 } },
+            { name: "Tembaga(II) Sulfat", formula: "CuSO₄", required: { Cu: 1, S: 1, O: 4 } }
+        ];
+
+        const ELEMENTS_DATA = {
+            H: 'bg-slate-100 text-slate-800', O: 'bg-red-500 text-white',
+            C: 'bg-stone-800 text-white', N: 'bg-blue-500 text-white',
+            Na: 'bg-purple-500 text-white', Cl: 'bg-green-500 text-white',
+            S: 'bg-yellow-500 text-slate-900', Fe: 'bg-orange-600 text-white',
+            P: 'bg-orange-400 text-white', Ca: 'bg-orange-200 text-slate-800',
+            Cu: 'bg-amber-700 text-white'
+        };
+
+        const ALL_SYMBOLS = Object.keys(ELEMENTS_DATA);
+
+        let score = 0, lives = 3, gameState = 'start', targetCompound = null, collected = {}, elements = [], flaskX = 50;
+        let keys = { ArrowLeft: false, ArrowRight: false }, lastSpawnTime = 0, gameLoopId = null;
+
+        const startScreen = document.getElementById('start-screen'), gameUI = document.getElementById('game-ui'),
+              gameoverScreen = document.getElementById('gameover-screen'), elementsLayer = document.getElementById('elements-layer'),
+              beaker = document.getElementById('beaker'), beakerLiquid = document.getElementById('beaker-liquid'),
+              scoreDisplay = document.getElementById('score-display'), livesContainer = document.getElementById('lives-container'),
+              targetFormula = document.getElementById('target-formula'), targetName = document.getElementById('target-name'),
+              ingredientsList = document.getElementById('ingredients-list'), msgContainer = document.getElementById('msg-container');
+
+        function startGame() {
+            score = 0; lives = 3; elements = []; elementsLayer.innerHTML = ''; collected = {}; gameState = 'playing';
+            startScreen.classList.add('hidden'); gameoverScreen.classList.add('hidden'); gameUI.classList.remove('hidden');
+            pickNextCompound(); updateUI();
+            if (gameLoopId) cancelAnimationFrame(gameLoopId);
+            gameLoopId = requestAnimationFrame(gameLoop);
+        }
+
+        function pickNextCompound() {
+            const old = targetCompound?.formula;
+            do { targetCompound = COMPOUNDS[Math.floor(Math.random() * COMPOUNDS.length)]; } while (targetCompound.formula === old);
+            collected = {}; updateTargetUI();
+        }
+
+        function updateUI() {
+            scoreDisplay.textContent = score;
+            livesContainer.innerHTML = '❤️'.repeat(lives) + '<span class="opacity-20">' + '❤️'.repeat(Math.max(0, 3 - lives)) + '</span>';
+            const total = Object.values(targetCompound.required).reduce((a, b) => a + b, 0);
+            const cur = Object.values(collected).reduce((a, b) => a + b, 0);
+            beakerLiquid.style.height = `${(cur / total) * 100}%`;
+        }
+
+        function updateTargetUI() {
+            targetFormula.textContent = targetCompound.formula;
+            targetName.textContent = targetCompound.name;
+            ingredientsList.innerHTML = '';
+            for (const [sym, count] of Object.entries(targetCompound.required)) {
+                const cur = (collected[sym] || 0);
+                const isFull = cur >= count;
+                const div = document.createElement('div');
+                div.className = `flex flex-col items-center px-3 py-1 rounded-lg border-2 ${isFull ? 'bg-green-500/20 border-green-500 text-green-300' : 'bg-slate-900 border-slate-700 text-slate-400'}`;
+                div.innerHTML = `<span class="font-black text-lg">${sym}</span><span class="text-[10px] font-bold">${cur}/${count}</span>`;
+                ingredientsList.appendChild(div);
+            }
+        }
+
+        function spawnMessage(text, isErr = false) {
+            const div = document.createElement('div');
+            div.className = `msg-popup px-6 py-2 rounded-full font-black shadow-2xl whitespace-nowrap text-xl ${isErr ? 'bg-red-600 text-white' : 'bg-green-500 text-white'}`;
+            div.textContent = text;
+            msgContainer.appendChild(div);
+            setTimeout(() => div.remove(), 1500);
+        }
+
+        function handleCatch(symbol) {
+            const needed = targetCompound.required[symbol] || 0;
+            const cur = collected[symbol] || 0;
+            if (needed > 0 && cur < needed) {
+                collected[symbol] = cur + 1;
+                score += 10;
+                let done = true;
+                for (const [s, c] of Object.entries(targetCompound.required)) { if ((collected[s] || 0) < c) { done = false; break; } }
+                if (done) { score += 100; spawnMessage(`BERHASIL! +100`); pickNextCompound(); }
+            } else {
+                lives--; spawnMessage(`SALAH!`, true);
+                document.getElementById('game-container').classList.add('animate-shake');
+                setTimeout(() => document.getElementById('game-container').classList.remove('animate-shake'), 300);
+                if (lives <= 0) { gameState = 'gameover'; gameoverScreen.classList.remove('hidden'); document.getElementById('final-score').textContent = score; }
+            }
+            updateUI(); updateTargetUI();
+        }
+
+        function gameLoop(time) {
+            if (gameState !== 'playing') return;
+            if (keys.ArrowLeft) flaskX = Math.max(8, flaskX - 1.5);
+            if (keys.ArrowRight) flaskX = Math.min(92, flaskX + 1.5);
+            beaker.style.left = `${flaskX}%`;
+
+            if (time - lastSpawnTime > Math.max(350, 1200 - (score / 5))) {
+                lastSpawnTime = time;
+                const targetSyms = Object.keys(targetCompound.required);
+                const symbol = Math.random() > 0.4 ? targetSyms[Math.floor(Math.random() * targetSyms.length)] : ALL_SYMBOLS[Math.floor(Math.random() * ALL_SYMBOLS.length)];
+                const el = document.createElement('div');
+                el.className = `absolute w-14 h-14 rounded-full flex items-center justify-center font-black text-xl border-4 border-white/30 shadow-2xl ${ELEMENTS_DATA[symbol] || 'bg-gray-400'}`;
+                el.textContent = symbol;
+                el.dataset.symbol = symbol;
+                el.dataset.y = -10;
+                el.dataset.x = Math.random() * 84 + 8;
+                el.dataset.speed = (Math.random() * 0.4 + 0.6) + (score / 3000);
+                elementsLayer.appendChild(el);
+                elements.push(el);
+            }
+
+            for (let i = elements.length - 1; i >= 0; i--) {
+                const el = elements[i];
+                let y = parseFloat(el.dataset.y) + parseFloat(el.dataset.speed);
+                let x = parseFloat(el.dataset.x);
+                el.dataset.y = y; el.style.top = y + '%'; el.style.left = x + '%'; el.style.transform = 'translateX(-50%)';
+                if (y > 78 && y < 88 && Math.abs(x - flaskX) < 10) { handleCatch(el.dataset.symbol); el.remove(); elements.splice(i, 1); }
+                else if (y > 105) { el.remove(); elements.splice(i, 1); }
+            }
+            gameLoopId = requestAnimationFrame(gameLoop);
+        }
+
+        window.addEventListener('keydown', e => { if (keys.hasOwnProperty(e.key)) keys[e.key] = true; });
+        window.addEventListener('keyup', e => { if (keys.hasOwnProperty(e.key)) keys[e.key] = false; });
+        const move = (clientX) => { if (gameState === 'playing') { flaskX = Math.max(8, Math.min(92, (clientX / window.innerWidth) * 100)); beaker.style.left = `${flaskX}%`; } };
+        window.addEventListener('mousemove', e => move(e.clientX));
+        window.addEventListener('touchmove', e => move(e.touches[0].clientX), { passive: true });
+    </script>
+</body>
+</html>
